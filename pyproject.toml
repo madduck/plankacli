@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.setuptools_scm]
+write_to = "_version.py"
+
+[project.scripts]
+plankacli = "plankacli.cli:main"
+
+[project]
+name = "plankacli"
+version = "0.0.1"
+authors = [
+  { name="martin f. krafft", email="plankacli@pobox.madduck.net" },
+]
+description = "A command-line tool to interact with Planka Kanban"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+  "plankapy",
+  "click"
+]
+
+[project.optional-dependencies]
+dev = [
+  "ipdb",
+  "black"
+]
