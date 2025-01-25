@@ -1,6 +1,8 @@
 import click
 import random
-import plankapy
+from datetime import datetime
+import plankapy as ppy
+from plankapy import helpers as ppyh
 
 from plankacli.logger import get_logger, adjust_log_level
 
@@ -29,28 +31,34 @@ logger = get_logger(__name__)
 def main(ctx, verbose, quiet, url, token, project, board):
     adjust_log_level(logger, verbose, quiet=quiet)
 
-    tokens = token.split(":", 1)
-    if len(tokens) == 2:
-        tokens = {"access_token": tokens[0], "http_only_token": tokens[1]}
-    else:
-        logger.warning("No httpOnlyToken provided")
-        tokens = {"access_token": tokens[0], "http_only_token": None}
+    auth = ppy.TokenAuth(token)
+    planka = ppy.Planka(url=url, auth=auth)
 
-    planka = plankapy.Planka(url=url, **tokens)
+    project = ppyh.by_project_name(planka.projects, project)
+    if not project:
+        logger.error(f"Project '{project}' not found")
+        ctx.exit(1)
+    project = project[0]
+
+    board = ppyh.by_board_name(project.boards, board)
+    if not board:
+        logger.error(f"Board '{board}' not found")
+        ctx.exit(1)
+    board = board[0]
 
     ctx.obj = {
         "planka": planka,
-        "project_name": project,
-        "board_name": board,
+        "project": project,
+        "board": board,
     }
 
 
 @main.group()
-def list():
+def lst():
     pass
 
 
-@list.command()
+@lst.command()
 @click.option(
     "--tag", "-t", multiple=True, help="Only clear cards with this tag"
 )
@@ -59,38 +67,37 @@ def list():
     prompt="Are you sure you want to clear the specified lists?"
 )
 @click.pass_obj
-def clear(obj, tag, list):
-    """Clear ALL cards from the specified lists"""
-    boardselector = {
-        "project_name": obj["project_name"],
-        "board_name": obj["board_name"],
-    }
-    cardctrl = plankapy.Card(obj["planka"])
-    labelctrl = plankapy.Label(obj["planka"])
-    labels = {
-        l["id"]
-        for l in labelctrl.get(**boardselector)
-        if l["name"] in set(tag)
-    }
+def clear(obj, label_name: str, list_name: str):
+    """Clear ALL cards from the specified lists that have the specified label
+    
+    Args:
+        obj (dict): Context object (gets Planka)
+        label (str): Name of the label to clear (optional)
+        list (str): Name of the list to clear
+    """
+    board: ppy.Board = obj["board"]
 
-    for l in list:
-        n = 0
-        for n, card in enumerate(
-            cardctrl.get(**boardselector, list_name=l), 1
-        ):
-            oid = card["item"]["id"]
-            if labels:
-                cardlabels = {l["labelId"] for l in cardctrl.get_labels(oid=oid)}
-                if not labels & cardlabels:
-                    logger.debug(
-                        f"Skipping deletion of card with ID {oid} "
-                        f"without any labels in {', '.join(tag)}"
-                    )
-                    continue
-            cardctrl.delete(oid=oid)
-            logger.debug(f"Deleted card with ID {oid}")
-        logger.debug(f"Cleared {n} card(s) off list {l}")
+    _list = ppyh.by_list_name(board.lists, list_name)
+    if not _list:
+        logger.error(f"List '{list_name}' not found")
+        return
 
+    _list = _list[0]
+
+    label = ppyh.by_label_name(board.labels, label_name)
+
+    if not label:
+        logger.error(f"Label '{label_name}' not found")
+        return
+    
+    label = label[0]
+
+    for card in _list.cards:
+        if label and label not in card.labels:
+            continue
+
+        card.delete()
+        logger.info(f"Deleted card with ID {card.id}")
 
 @main.group()
 def label():
@@ -100,29 +107,38 @@ def label():
 @label.command()
 @click.argument("label", nargs=-1)
 @click.pass_obj
-def delete(obj, label):
-    """Delete the specified labels"""
-    boardselector = {
-        "project_name": obj["project_name"],
-        "board_name": obj["board_name"],
-    }
-    labelctrl = plankapy.Label(obj["planka"])
+def delete(obj, label_names: list[str]):
+    """Delete the specified labels from the board
+    
+    Note:
+        Calling with no arguments will delete all labels from the board
 
-    for l in label:
-        try:
-            lobj = labelctrl.get(**boardselector, label_name=l)
-            labelctrl.delete(oid=lobj["id"])
-            logger.info(f"Deleted label {l}")
+    Args:
+        obj (dict): Context object
+        label_names (list[str]): Names of the labels to delete
+    """
 
-        except plankapy.plankapy.InvalidToken:
-            logger.warning(f"Label does not exist: {l}")
+    board: ppy.Board = obj["board"]
+
+    labels: list[ppy.Label] = [ppyh.by_label_name(board.labels, name) for name in label_names]
+    if not labels:
+        logger.error(f"Label(s) '{label_names}' not found")
+        return
+
+    for label in labels:
+        label.delete()
+        logger.info(f"Deleted label '{label.name}'")
 
 
 @label.command()
 @click.pass_obj
 def colours(obj):
-    labelctrl = plankapy.Label(obj["planka"])
-    click.echo("\n".join(sorted(labelctrl.colors())))
+    click.echo(
+        "\n".join(
+            sorted(
+                ppy.constants.LabelColor.__args__)
+                )
+            )
 
 
 @main.group()
@@ -134,22 +150,25 @@ def card():
 @click.argument("id", type=click.INT, nargs=-1)
 @click.pass_obj
 def delete(obj, id):
-    """Delete cards by their IDs"""
-    listselector = {
-        "project_name": obj["project_name"],
-        "board_name": obj["board_name"],
-    }
-    cardctrl = plankapy.Card(obj["planka"])
-    for card in id:
-        cardctrl.delete(oid=card, **listselector)
-        logger.info(f"Deleted card with ID {card}")
+    """Delete a card by its id
+    
+    Args:
+        obj (dict): Context object (uses board context)
+        id (int): ID of the card to delete
+    """
+    board: ppy.Board = obj["board"]
+
+    for card in board.cards:
+        if card.id == id:
+            card.delete()
+            logger.info(f"Deleted card with ID {id}")
+            return
 
 
 @card.command()
 @click.option(
-    "--list",
+    "--list_name",
     "-l",
-    "listname",
     required=True,
     help="Name of the list where to add cards",
 )
@@ -166,90 +185,35 @@ def delete(obj, id):
     type=click.DateTime(),
     help="Due date for new cards",
 )
-@click.option("--tag", "-t", multiple=True, help="Tag to add to new card")
+@click.option("--label_names", "-l", multiple=True, help="Label(s) to add to new card")
 @click.option(
-    "--member", "-m", multiple=True, help="Member to add to new card"
+    "--user_names", "-u", multiple=True, help="User(s) to add to new card"
 )
 @click.argument("name", nargs=-1)
 @click.pass_obj
-def add(obj, listname, position, due_date, tag, member, name):
+def add(obj, name: str, list_name: str, position, 
+        due_date: datetime | None = None, 
+        label_names: list[str] | None = None, user_names: list[str] | None = None):
     """Add named cards to the specified list"""
-    boardselector = {
-        "project_name": obj["project_name"],
-        "board_name": obj["board_name"],
-    }
-    listselector = boardselector | {
-        "list_name": listname,
-    }
+    board: ppy.Board = obj["board"]
 
-    labelctrl = plankapy.Label(obj["planka"])
-    userctrl = plankapy.User(obj["planka"])
-    colours = labelctrl.colors()
-    created_labels = set()
+    _list = ppyh.by_list_name(board.lists, list_name)
+    if not _list:
+        logger.error(f"List '{list_name}' not found")
+        return
+    _list = _list[0]
 
-    for cardname in name:
-        carddata = {
-            "name": cardname,
-            # "description": "str",
-            "position": position,
-            # "stopwatch": "Stopwatch",
-        }
+    users = [user for user in board.users if user.name in user_names] or None
+    labels = [label for label in board.labels if label.name in label_names] or None
 
-        if due_date:
-            carddata["dueDate"] = str(due_date)
-
-        cardctrl = plankapy.Card(obj["planka"], **carddata)
-        card = cardctrl.create(**listselector)
-        cid = card["item"]["id"]
-        logger.info(f"Created new card with ID {cid}")
-
-        for t in tag:
-            colour = None
-            tname, sep, colour = t.rpartition(":")
-            if not tname:
-                # rpartition returns (None, None, tname) if no colour appended
-                tname, colour = colour, None
-
-            if colour and colour not in colours:
-                # not a known colour
-                tname = sep.join((tname, colour))
-                colour = None
-
-            for i in range(2):
-                # try this twice so if it fails the first time, create the
-                # label and try again… once more.
-                try:
-                    labelctrl.add(
-                        card_id=cid, label_name=tname, **boardselector
-                    )
-                    if colour and tname not in created_labels:
-                        logger.warning(
-                            f"Ignored colour '{colour}' as label already exists: {tname}"
-                        )
-                    logger.info(f"Added label '{tname}' to card with ID {cid}")
-                    break
-
-                except plankapy.plankapy.InvalidToken:
-                    if not colour:
-                        colour = random.choice(colours)
-                        logger.debug(f"Chose random color: {colour}")
-
-                    labeldata = {
-                        "name": tname,
-                        # "description": "str",
-                        "position": 0,
-                        "color": colour,
-                        # "stopwatch": "Stopwatch",
-                    }
-                    labelctrl = plankapy.Label(obj["planka"], **labeldata)
-                    labelctrl.create(**boardselector)
-                    logger.info(f"Created label '{tname}'")
-                    created_labels.add(tname)
-
-        for m in member:
-            try:
-                user = userctrl.get(name=m)
-                userctrl.add(card_id=cid, user_id=user["id"])
-            except plankapy.plankapy.InvalidToken:
-                logger.error(f"User does not exist: {m}")
-                continue
+    for card_name in name:
+        card = ppy.Card(
+            name = name,
+            position=position or 0,
+            dueDate=due_date.isoformat() if due_date else None,
+        )
+        card = _list.create_card(card)
+        for user in users:
+            card.add_member(user)
+        for label in labels:
+            card.add_label(label)
