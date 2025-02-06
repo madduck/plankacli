@@ -31,5 +31,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "ipdb",
-  "black"
+  "black",
+  "flake8"
 ]
