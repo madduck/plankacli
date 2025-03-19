@@ -22,16 +22,23 @@ logger = get_logger(__name__)
     help="Planka access token to use (token:httpOnlyToken)",
 )
 @click.option(
+    "--config",
+    "-c",
+    help="Config file to read",
+    type=click.Path(path_type=pathlib.Path),
+)
+@click.option(
     "--project", "-p", help="Name of project to work on"
 )
 @click.option("--board", "-b", help="Name the board to work on")
 @click.pass_context
-def main(ctx, verbose, quiet, url, token, project, board):
+def main(ctx, verbose, quiet, url, token, config, project, board):
     """A command-line interface to Planka"""
 
     adjust_log_level(logger, verbose, quiet=quiet)
 
-    config = Config()
+    config = Config(config)
+
     url = url or config.get("url")
     if not url:
         raise click.UsageError("No URL specified, and none in config")
