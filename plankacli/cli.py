@@ -27,6 +27,8 @@ logger = get_logger(__name__)
 @click.option("--board", "-b", help="Name the board to work on")
 @click.pass_context
 def main(ctx, verbose, quiet, url, token, project, board):
+    """A command-line interface to Planka"""
+
     adjust_log_level(logger, verbose, quiet=quiet)
 
     config = Config()
@@ -65,7 +67,7 @@ def main(ctx, verbose, quiet, url, token, project, board):
 
 @main.group()
 def list():
-    pass
+    """Commands to manipulate lists"""
 
 
 @list.command()
@@ -112,7 +114,7 @@ def clear(obj, tag, list):
 
 @main.group()
 def label():
-    pass
+    """Commands to manipulate labels (tags)"""
 
 
 @label.command()
@@ -139,13 +141,14 @@ def delete(obj, label):
 @label.command()
 @click.pass_obj
 def colours(obj):
+    """Enumerate the available colour names"""
     labelctrl = plankapy.Label(obj["planka"])
     click.echo("\n".join(sorted(labelctrl.colors())))
 
 
 @main.group()
 def card():
-    pass
+    """Commands to manipulate cards"""
 
 
 @card.command()
