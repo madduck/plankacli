@@ -14,10 +14,10 @@ logger = get_logger(__name__)
 @click.option(
     "--quiet", "-q", is_flag=True, help="Make the tool very quiet"
 )
-@click.option("--url", "-u", required=True, help="URL of Planka instance")
+@click.option("--url", "-U", required=True, help="URL of Planka instance")
 @click.option(
     "--token",
-    "-t",
+    "-T",
     required=True,
     help="Planka access token to use (token:httpOnlyToken)",
 )
