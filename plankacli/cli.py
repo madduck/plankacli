@@ -3,6 +3,7 @@ import random
 import plankapy
 
 from plankacli.logger import get_logger, adjust_log_level
+from plankacli.config import Config
 
 logger = get_logger(__name__)
 
@@ -14,20 +15,36 @@ logger = get_logger(__name__)
 @click.option(
     "--quiet", "-q", is_flag=True, help="Make the tool very quiet"
 )
-@click.option("--url", "-U", required=True, help="URL of Planka instance")
+@click.option("--url", "-U", help="URL of Planka instance")
 @click.option(
     "--token",
     "-T",
-    required=True,
     help="Planka access token to use (token:httpOnlyToken)",
 )
 @click.option(
-    "--project", "-p", required=True, help="Name of project to work on"
+    "--project", "-p", help="Name of project to work on"
 )
-@click.option("--board", "-b", required=True, help="Name the board to work on")
+@click.option("--board", "-b", help="Name the board to work on")
 @click.pass_context
 def main(ctx, verbose, quiet, url, token, project, board):
     adjust_log_level(logger, verbose, quiet=quiet)
+
+    config = Config()
+    url = url or config.get("url")
+    if not url:
+        raise click.UsageError("No URL specified, and none in config")
+
+    token = token or config.get("token")
+    if not token:
+        raise click.UsageError("No API token specified, and none in config")
+
+    project = project or config.get("project")
+    if not project:
+        raise click.UsageError("No project name specified, and none in config")
+
+    board = board or config.get("board")
+    if not board:
+        raise click.UsageError("No board name specified, and none in config")
 
     tokens = token.split(":", 1)
     if len(tokens) == 2:
@@ -42,6 +59,7 @@ def main(ctx, verbose, quiet, url, token, project, board):
         "planka": planka,
         "project_name": project,
         "board_name": board,
+        "config": config
     }
 
 
