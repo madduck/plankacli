@@ -12,7 +12,7 @@ logger = get_logger(__name__)
     "--verbose", "-v", count=True, help="Increase verbosity of log output"
 )
 @click.option(
-    "--quiet", "-q", is_flag=True, help="Increase verbosity of log output"
+    "--quiet", "-q", is_flag=True, help="Make the tool very quiet"
 )
 @click.option("--url", "-u", required=True, help="URL of Planka instance")
 @click.option(
