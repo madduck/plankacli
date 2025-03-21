@@ -193,6 +193,21 @@ Options:
   --help          Show this message and exit.
 ```
 
+## Contributing
+
+To contribute, please ensure you have the appropriate dependencies installed:
+
+```
+$ pip install -e .[dev]
+```
+
+and then install the Git pre-commit hooks that ensure that any commits conform
+with the Flake8 and Black conventions used by this project:
+
+```
+$ pre-commit install
+```
+
 ## Legalese
 
 `plankacli` is © 2025 martin f. krafft <plankacli@pobox.madduck.net>.
