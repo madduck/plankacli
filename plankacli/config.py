@@ -29,7 +29,7 @@ class Config:
 
             return rv.get(keys[-1], default)
 
-        except KeyError as err:
+        except KeyError:
             raise KeyError(key)
 
     def set(self, key, value):

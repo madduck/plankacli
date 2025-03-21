@@ -33,5 +33,17 @@ dependencies = [
 dev = [
   "ipdb",
   "black",
-  "flake8"
+  "flake8",
+  "pre-commit"
 ]
+
+[tool.black]
+line-length = 80
+exclude = '''
+/(
+    \.git
+  | \.tox
+  | __pycache__
+  | .direnv
+)/
+'''

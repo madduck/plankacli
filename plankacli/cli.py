@@ -1,6 +1,7 @@
 import click
 import random
 import plankapy
+import pathlib
 
 from plankacli.logger import get_logger, adjust_log_level
 from plankacli.config import Config
@@ -12,9 +13,7 @@ logger = get_logger(__name__)
 @click.option(
     "--verbose", "-v", count=True, help="Increase verbosity of log output"
 )
-@click.option(
-    "--quiet", "-q", is_flag=True, help="Make the tool very quiet"
-)
+@click.option("--quiet", "-q", is_flag=True, help="Make the tool very quiet")
 @click.option("--url", "-U", help="URL of Planka instance")
 @click.option(
     "--token",
@@ -27,9 +26,7 @@ logger = get_logger(__name__)
     help="Config file to read",
     type=click.Path(path_type=pathlib.Path),
 )
-@click.option(
-    "--project", "-p", help="Name of project to work on"
-)
+@click.option("--project", "-p", help="Name of project to work on")
 @click.option("--board", "-b", help="Name the board to work on")
 @click.pass_context
 def main(ctx, verbose, quiet, url, token, config, project, board):
@@ -68,7 +65,7 @@ def main(ctx, verbose, quiet, url, token, config, project, board):
         "planka": planka,
         "project_name": project,
         "board_name": board,
-        "config": config
+        "config": config,
     }
 
 
@@ -95,19 +92,21 @@ def clear(obj, tag, list):
     cardctrl = plankapy.Card(obj["planka"])
     labelctrl = plankapy.Label(obj["planka"])
     labels = {
-        l["id"]
-        for l in labelctrl.get(**boardselector)
-        if l["name"] in set(tag)
+        label["id"]
+        for label in labelctrl.get(**boardselector)
+        if label["name"] in set(tag)
     }
 
-    for l in list:
+    for lst in list:
         n = 0
         for n, card in enumerate(
-            cardctrl.get(**boardselector, list_name=l), 1
+            cardctrl.get(**boardselector, list_name=lst), 1
         ):
             oid = card["item"]["id"]
             if labels:
-                cardlabels = {l["labelId"] for l in cardctrl.get_labels(oid=oid)}
+                cardlabels = {
+                    label["labelId"] for label in cardctrl.get_labels(oid=oid)
+                }
                 if not labels & cardlabels:
                     logger.debug(
                         f"Skipping deletion of card with ID {oid} "
@@ -116,7 +115,7 @@ def clear(obj, tag, list):
                     continue
             cardctrl.delete(oid=oid)
             logger.debug(f"Deleted card with ID {oid}")
-        logger.debug(f"Cleared {n} card(s) off list {l}")
+        logger.debug(f"Cleared {n} card(s) off list {lst}")
 
 
 @main.group()
@@ -124,10 +123,10 @@ def label():
     """Commands to manipulate labels (tags)"""
 
 
-@label.command()
+@label.command(name="delete")
 @click.argument("label", nargs=-1)
 @click.pass_obj
-def delete(obj, label):
+def label_delete(obj, label):
     """Delete the specified labels"""
     boardselector = {
         "project_name": obj["project_name"],
@@ -135,14 +134,14 @@ def delete(obj, label):
     }
     labelctrl = plankapy.Label(obj["planka"])
 
-    for l in label:
+    for lbl in label:
         try:
-            lobj = labelctrl.get(**boardselector, label_name=l)
+            lobj = labelctrl.get(**boardselector, label_name=lbl)
             labelctrl.delete(oid=lobj["id"])
-            logger.info(f"Deleted label {l}")
+            logger.info(f"Deleted label {lbl}")
 
         except plankapy.plankapy.InvalidToken:
-            logger.warning(f"Label does not exist: {l}")
+            logger.warning(f"Label does not exist: {lbl}")
 
 
 @label.command()
@@ -158,10 +157,10 @@ def card():
     """Commands to manipulate cards"""
 
 
-@card.command()
+@card.command(name="delete")
 @click.argument("id", type=click.INT, nargs=-1)
 @click.pass_obj
-def delete(obj, id):
+def card_delete(obj, id):
     """Delete cards by their IDs"""
     listselector = {
         "project_name": obj["project_name"],
@@ -195,9 +194,7 @@ def delete(obj, id):
     help="Due date for new cards",
 )
 @click.option("--tag", "-t", multiple=True, help="Tag to add to new card")
-@click.option(
-    "--member", "-m", multiple=True, help="Member to add to new card"
-)
+@click.option("--member", "-m", multiple=True, help="Member to add to new card")
 @click.argument("name", nargs=-1)
 @click.pass_obj
 def add(obj, listname, position, due_date, tag, member, name):
@@ -252,7 +249,8 @@ def add(obj, listname, position, due_date, tag, member, name):
                     )
                     if colour and tname not in created_labels:
                         logger.warning(
-                            f"Ignored colour '{colour}' as label already exists: {tname}"
+                            f"Ignored colour '{colour}' "
+                            f"as label already exists: {tname}"
                         )
                     logger.info(f"Added label '{tname}' to card with ID {cid}")
                     break

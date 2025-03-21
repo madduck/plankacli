@@ -88,5 +88,5 @@ class LoggerAdapter(logging.LoggerAdapter):
 
     def process(self, msg, kwargs):
         if extra := self.extra.get("id"):
-            return f"[{self.extra['id']}] {msg}", kwargs
+            return f"[{extra}] {msg}", kwargs
         return msg, kwargs
