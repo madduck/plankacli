@@ -1,74 +1,92 @@
 import logging
+import click
+
+FORMAT = (
+    "%(asctime)s %(levelname)-8s %(message)s "
+    "(%(filename)s:%(lineno)d, logger: %(name)s)"
+)
+DATEFMT = "%F %T"
 
 logging.TRACE = logging.DEBUG - 1
-
 logging.addLevelName(logging.TRACE, "TRACE")
 
 
-class CustomFormatter(logging.Formatter):
-    GREY = "\x1b[48;5;15m\x1b[38;5;7m"
-    CYAN = "\x1b[48;5;15m\x1b[38;5;14m"
-    YELLOW = "\x1b[48;5;11m\x1b[38;5;0m"
-    RED = "\x1b[48;5;15m\x1b[38;5;9m"
-    BOLD_RED = "\x1b[48;5;9m\x1b[38;5;15m"
-    RESET = "\x1b[0m"
+def _trace(self, msg, *args, **kwargs):
+    return self.log(logging.TRACE, msg, *args, stacklevel=2, **kwargs)
 
-    FORMATS = {
-        logging.TRACE: f"{GREY}%(fmt)s{RESET}",
-        logging.DEBUG: f"{CYAN}%(fmt)s{RESET}",
-        logging.INFO: "%(fmt)s",
-        logging.WARNING: f"{YELLOW}%(fmt)s{RESET}",
-        logging.ERROR: f"{RED}%(fmt)s{RESET}",
-        logging.CRITICAL: f"{BOLD_RED}%(fmt)s{RESET}",
+
+logging.trace = _trace
+
+
+class LoggerWithTrace(logging.Logger):
+    trace = _trace
+
+
+logging.setLoggerClass(LoggerWithTrace)
+
+
+class ClickStyleFormatter(logging.Formatter):
+
+    STYLES = {
+        logging.TRACE: {"fg": "bright_cyan"},
+        logging.DEBUG: {"fg": "cyan"},
+        logging.INFO: {},
+        logging.WARNING: {"fg": "black", "bg": "bright_yellow"},
+        logging.ERROR: {"fg": "white", "bg": "bright_red", "bold": True},
+        logging.CRITICAL: {
+            "fg": "bright_yellow",
+            "bg": "bright_red",
+            "bold": True,
+            "blink": True,
+        },
     }
 
-    def __init__(
-        self,
-        fmt=None,
-        datefmt=None,
-        style="%",
-        validate=True,
-        *,
-        defaults=None,
-    ):
-        self._formats = dict(
-            (k, v % dict(fmt=fmt)) for k, v in CustomFormatter.FORMATS.items()
-        )
-        super().__init__(fmt, datefmt, style, validate, defaults=defaults)
-
     def format(self, record):
-        self._style._fmt = self._formats.get(record.levelno)
-        return super().format(record)
+        style = self.STYLES.get(record.levelno, {})
+        message = super().format(record)
+        return click.style(message, **style)
 
 
-def get_logger(name, level=logging.INFO):
+class ClickEchoHandler(logging.StreamHandler):
+    def emit(self, record):
+        msg = self.format(record)
+        click.echo(msg + self.terminator, nl=False, file=self.stream)
 
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
 
-    streamhandler = logging.StreamHandler()
-    formatter = CustomFormatter(
-        fmt="%(asctime)s %(levelname)-8s %(message)s (%(filename)s:%(lineno)d)",
-        datefmt="%F %T",
-    )
-    streamhandler.setFormatter(formatter)
+def get_logger(
+    name=None,
+    level=logging.WARNING,
+    fmt=FORMAT,
+    datefmt=DATEFMT,
+    propagate=False,
+):
 
-    logger.addHandler(streamhandler)
+    if name is None:
+        streamhandler = ClickEchoHandler()
+        streamhandler.setFormatter(
+            ClickStyleFormatter(
+                fmt=fmt,
+                datefmt=datefmt,
+            )
+        )
 
-    def trace(msg, *args, **kwargs):
-        return logger.log(logging.TRACE, msg, *args, **kwargs)
+        logger = logging.getLogger(None)  # root logger
+        logger.setLevel(level)
+        logger.addHandler(streamhandler)
 
-    logger.trace = trace
+    else:
+        logger = logging.getLogger(name)
+        logger.setLevel(logging.NOTSET)
 
     return logger
 
 
-def adjust_log_level(logger, verbosity, *, quiet=False):
+def log_level_from_cli(logger, verbosity, *, quiet=False):
 
     if quiet:
-        loglevel = logging.CRITICAL
+        loglevel = logging.ERROR
     elif verbosity >= 3:
-        loglevel = logging.DEBUG - verbosity + 3
+        loglevel = logging.DEBUG - verbosity + 2
     else:
         loglevel = logging.WARNING - verbosity * 10
 
@@ -76,17 +94,12 @@ def adjust_log_level(logger, verbosity, *, quiet=False):
         logger.warning("Log level at or below NOTSET")
 
     logger.setLevel(loglevel)
-    logger.debug(
-        f"Logging at level {logging.getLevelName(logger.getEffectiveLevel())}"
-    )
 
 
-class LoggerAdapter(logging.LoggerAdapter):
-
-    def trace(self, msg, *args, **kwargs):
-        return self.log(logging.TRACE, msg, *args, **kwargs)
+class IncludeExtraInfoAdapter(logging.LoggerAdapter):
 
     def process(self, msg, kwargs):
-        if extra := self.extra.get("id"):
-            return f"[{extra}] {msg}", kwargs
-        return msg, kwargs
+        if self.extra:
+            return super().process(f"{msg} [{self.extra}]", kwargs)
+        else:
+            return super().process(msg, kwargs)

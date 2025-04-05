@@ -1,15 +1,16 @@
 import click
 import random
 import plankapy
-import pathlib
 
-from plankacli.logger import get_logger, adjust_log_level
-from plankacli.config import Config
+from plankacli.logger import get_logger, log_level_from_cli
+from plankacli.config import config_file_option, merge_config
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
-@click.group()
+@click.group
+@config_file_option
+@merge_config
 @click.option(
     "--verbose", "-v", count=True, help="Increase verbosity of log output"
 )
@@ -20,35 +21,23 @@ logger = get_logger(__name__)
     "-T",
     help="Planka access token to use (token:httpOnlyToken)",
 )
-@click.option(
-    "--config",
-    "-c",
-    help="Config file to read",
-    type=click.Path(path_type=pathlib.Path),
-)
 @click.option("--project", "-p", help="Name of project to work on")
 @click.option("--board", "-b", help="Name the board to work on")
 @click.pass_context
-def main(ctx, verbose, quiet, url, token, config, project, board):
+def plankacli(ctx, verbose, quiet, url, token, config, project, board):
     """A command-line interface to Planka"""
 
-    adjust_log_level(logger, verbose, quiet=quiet)
+    log_level_from_cli(logger, verbose, quiet=quiet)
 
-    config = Config(config)
-
-    url = url or config.get("url")
     if not url:
         raise click.UsageError("No URL specified, and none in config")
 
-    token = token or config.get("token")
     if not token:
         raise click.UsageError("No API token specified, and none in config")
 
-    project = project or config.get("project")
     if not project:
         raise click.UsageError("No project name specified, and none in config")
 
-    board = board or config.get("board")
     if not board:
         raise click.UsageError("No board name specified, and none in config")
 
@@ -69,12 +58,14 @@ def main(ctx, verbose, quiet, url, token, config, project, board):
     }
 
 
-@main.group()
+@plankacli.group()
+@merge_config
 def list():
     """Commands to manipulate lists"""
 
 
 @list.command()
+@merge_config
 @click.option(
     "--tag", "-t", multiple=True, help="Only clear cards with this tag"
 )
@@ -118,12 +109,14 @@ def clear(obj, tag, list):
         logger.debug(f"Cleared {n} card(s) off list {lst}")
 
 
-@main.group()
+@plankacli.group()
+@merge_config
 def label():
     """Commands to manipulate labels (tags)"""
 
 
 @label.command(name="delete")
+@merge_config
 @click.argument("label", nargs=-1)
 @click.pass_obj
 def label_delete(obj, label):
@@ -145,6 +138,7 @@ def label_delete(obj, label):
 
 
 @label.command()
+@merge_config
 @click.pass_obj
 def colours(obj):
     """Enumerate the available colour names"""
@@ -152,12 +146,14 @@ def colours(obj):
     click.echo("\n".join(sorted(labelctrl.colors())))
 
 
-@main.group()
+@plankacli.group()
+@merge_config
 def card():
     """Commands to manipulate cards"""
 
 
 @card.command(name="delete")
+@merge_config
 @click.argument("id", type=click.INT, nargs=-1)
 @click.pass_obj
 def card_delete(obj, id):
@@ -173,6 +169,7 @@ def card_delete(obj, id):
 
 
 @card.command()
+@merge_config
 @click.option(
     "--list",
     "-l",
@@ -280,3 +277,13 @@ def add(obj, listname, position, due_date, tag, member, description, name):
             except plankapy.plankapy.InvalidToken:
                 logger.error(f"User does not exist: {m}")
                 continue
+
+
+def main():
+    plankacli()
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
