@@ -195,9 +195,10 @@ def card_delete(obj, id):
 )
 @click.option("--tag", "-t", multiple=True, help="Tag to add to new card")
 @click.option("--member", "-m", multiple=True, help="Member to add to new card")
+@click.option("--description", "-d", help="Description for the new card")
 @click.argument("name", nargs=-1)
 @click.pass_obj
-def add(obj, listname, position, due_date, tag, member, name):
+def add(obj, listname, position, due_date, tag, member, description, name):
     """Add named cards to the specified list"""
     boardselector = {
         "project_name": obj["project_name"],
@@ -215,7 +216,7 @@ def add(obj, listname, position, due_date, tag, member, name):
     for cardname in name:
         carddata = {
             "name": cardname,
-            # "description": "str",
+            "description": description,
             "position": position,
             # "stopwatch": "Stopwatch",
         }
