@@ -186,7 +186,7 @@ def card_delete(obj, id):
 )
 @click.option(
     "--due-date",
-    "-d",
+    "-u",
     type=click.DateTime(),
     help="Due date for new cards",
 )
