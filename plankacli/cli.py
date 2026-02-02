@@ -90,9 +90,7 @@ def clear(obj, tag, list):
 
     for lst in list:
         n = 0
-        for n, card in enumerate(
-            cardctrl.get(**boardselector, list_name=lst), 1
-        ):
+        for n, card in enumerate(cardctrl.get(**boardselector, list_name=lst), 1):
             oid = card["item"]["id"]
             if labels:
                 cardlabels = {
@@ -242,9 +240,7 @@ def add(obj, listname, position, due_date, tag, member, description, name):
                 # try this twice so if it fails the first time, create the
                 # label and try again… once more.
                 try:
-                    labelctrl.add(
-                        card_id=cid, label_name=tname, **boardselector
-                    )
+                    labelctrl.add(card_id=cid, label_name=tname, **boardselector)
                     if colour and tname not in created_labels:
                         logger.warning(
                             f"Ignored colour '{colour}' "

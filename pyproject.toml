@@ -11,31 +11,20 @@ plankacli = "plankacli.cli:main"
 [project]
 name = "plankacli"
 version = "0.0.1"
-authors = [
-  { name="martin f. krafft", email="plankacli@pobox.madduck.net" },
-]
+authors = [{ name = "martin f. krafft", email = "plankacli@pobox.madduck.net" }]
 description = "A command-line tool to interact with Planka Kanban"
 readme = "README.md"
 requires-python = ">=3.12"
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
 ]
 
-dependencies = [
-  "plankapy<2",
-  "click",
-  "platformdirs"
-]
+dependencies = ["plankapy<2", "click", "platformdirs"]
 
 [project.optional-dependencies]
-dev = [
-  "ipdb",
-  "black",
-  "flake8",
-  "pre-commit"
-]
+dev = ["ipdb", "mypy", "ruff", "pre-commit"]
 
 [tool.black]
 line-length = 80
