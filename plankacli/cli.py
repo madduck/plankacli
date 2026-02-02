@@ -1,20 +1,22 @@
-import click
+import logging
 import random
+
+import click
+import click_extra as clickx
 import plankapy
 
-from plankacli.logger import get_logger, log_level_from_cli
-from plankacli.config import config_file_option, merge_config
-
-logger = get_logger()
+logging.getLogger("click_extra").setLevel(logging.WARNING)
+logger: logging.Logger = clickx.new_extra_logger(
+    format=("{asctime} {name} {levelname} {message} ({filename}:{lineno})"),
+    datefmt="%F %T",
+    level=logging.WARNING,
+)
+logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 
 @click.group
-@config_file_option
-@merge_config
-@click.option(
-    "--verbose", "-v", count=True, help="Increase verbosity of log output"
-)
-@click.option("--quiet", "-q", is_flag=True, help="Make the tool very quiet")
+@clickx.config_option(show_default=True)  # type: ignore
+@clickx.verbose_option(default_logger=logger)  # type: ignore
 @click.option("--url", "-U", help="URL of Planka instance")
 @click.option(
     "--token",
@@ -24,10 +26,8 @@ logger = get_logger()
 @click.option("--project", "-p", help="Name of project to work on")
 @click.option("--board", "-b", help="Name the board to work on")
 @click.pass_context
-def plankacli(ctx, verbose, quiet, url, token, config, project, board):
+def plankacli(ctx, url, token, project, board):
     """A command-line interface to Planka"""
-
-    log_level_from_cli(logger, verbose, quiet=quiet)
 
     if not url:
         raise click.UsageError("No URL specified, and none in config")
@@ -54,25 +54,18 @@ def plankacli(ctx, verbose, quiet, url, token, config, project, board):
         "planka": planka,
         "project_name": project,
         "board_name": board,
-        "config": config,
     }
 
 
 @plankacli.group()
-@merge_config
 def list():
     """Commands to manipulate lists"""
 
 
 @list.command()
-@merge_config
-@click.option(
-    "--tag", "-t", multiple=True, help="Only clear cards with this tag"
-)
+@click.option("--tag", "-t", multiple=True, help="Only clear cards with this tag")
 @click.argument("list", nargs=-1)
-@click.confirmation_option(
-    prompt="Are you sure you want to clear the specified lists?"
-)
+@click.confirmation_option(prompt="Are you sure you want to clear the specified lists?")
 @click.pass_obj
 def clear(obj, tag, list):
     """Clear ALL cards from the specified lists"""
@@ -108,13 +101,11 @@ def clear(obj, tag, list):
 
 
 @plankacli.group()
-@merge_config
 def label():
     """Commands to manipulate labels (tags)"""
 
 
 @label.command(name="delete")
-@merge_config
 @click.argument("label", nargs=-1)
 @click.pass_obj
 def label_delete(obj, label):
@@ -136,7 +127,6 @@ def label_delete(obj, label):
 
 
 @label.command()
-@merge_config
 @click.pass_obj
 def colours(obj):
     """Enumerate the available colour names"""
@@ -145,13 +135,11 @@ def colours(obj):
 
 
 @plankacli.group()
-@merge_config
 def card():
     """Commands to manipulate cards"""
 
 
 @card.command(name="delete")
-@merge_config
 @click.argument("id", type=click.INT, nargs=-1)
 @click.pass_obj
 def card_delete(obj, id):
@@ -167,7 +155,6 @@ def card_delete(obj, id):
 
 
 @card.command()
-@merge_config
 @click.option(
     "--list",
     "-l",
