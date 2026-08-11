@@ -1,3 +1,11 @@
+# THIS PROJECT HAS BEEN DISCONTINUED
+
+> [!CAUTION]
+> The Planka developers have [flicked the middle finger at the
+> community](https://github.com/plankanban/planka/issues/1754) and
+> introduced the [SSO tax](https://sso.tax) with almost no notice. Therefore, I
+> am discontinuing this code and will migrate to another project.
+
 # plankacli — a CLI tool to interact with Planka
 
 This command-line tool exists to facilitate interaction with [Planka](https://docs.planka.cloud/). It uses the [plankapy API client library](https://github.com/hwelch-fle/plankapy) to do the heavy lifting.
@@ -198,14 +206,14 @@ Options:
 To contribute, please ensure you have the appropriate dependencies installed:
 
 ```
-$ pip install -e .[dev]
+pip install -e .[dev]
 ```
 
 and then install the Git pre-commit hooks that ensure that any commits conform
 with the Flake8 and Black conventions used by this project:
 
 ```
-$ pre-commit install
+pre-commit install
 ```
 
 ## Legalese
